@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CrypticStake Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:ui-sans-serif,system-ui,sans-serif;background:#070b16;color:#eaf0ff;padding:20px 16px 60px;max-width:540px;margin:0 auto}
+h1{font-size:20px;font-weight:900;margin-bottom:4px}.sub{font-size:13px;color:#8b97b4;margin-bottom:20px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{flex:1;min-width:70px;text-align:center;border:1px solid #1f2b45;border-radius:10px;padding:10px 6px;background:#0f1626;color:#8b97b4;cursor:pointer;font-weight:700;font-size:13px}
+.tab.on{border-color:#00d4aa;background:#00d4aa15;color:#00d4aa}
+.key-row{display:flex;gap:8px;margin-bottom:22px}
+input,select,textarea{flex:1;border:1.5px solid #1f2b45;border-radius:10px;padding:12px;background:#0f1626;color:#eaf0ff;font-size:14px;width:100%}
+button{border:none;border-radius:10px;padding:12px 16px;font-weight:700;font-size:14px;cursor:pointer}
+.primary{background:linear-gradient(135deg,#6c47ff,#00d4aa);color:#fff}
+.card{border:1.5px solid #1f2b45;border-radius:14px;padding:16px;background:#0f1626;margin-bottom:12px}
+.stat{text-align:center}.stat .val{font-size:26px;font-weight:900;color:#00d4aa}.stat .lbl{font-size:11px;color:#8b97b4;margin-top:3px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;border-bottom:1px solid #1f2b45}
+.mut{color:#8b97b4}.warn{color:#ff8d6b}.good{color:#43d39e}
+.msg{font-size:13px;margin-top:10px;color:#00d4aa;min-height:18px}
+.field{margin-bottom:10px}.lbl{font-size:12px;color:#8b97b4;margin-bottom:5px;display:block}
+.hide{display:none}.urow{display:flex;align-items:center;gap:10px;border:1px solid #1f2b45;border-radius:12px;padding:12px;background:#141d31;margin-bottom:8px}
+.uinfo{flex:1;font-size:13px}.uaddr{font-weight:700;font-family:monospace}.ustat{font-size:11px;color:#8b97b4;margin-top:2px}
+.bantag{font-size:11px;color:#ff8d6b;background:#ff8d6b15;border:1px solid #ff8d6b40;border-radius:6px;padding:2px 7px}
+</style>
+</head>
+<body>
+<h1>CrypticStake Admin</h1>
+<div class="sub">Enter your admin key to unlock.</div>
+<div class="key-row"><input id="key" type="password" placeholder="Admin key"/><button class="primary" onclick="unlock()">Unlock</button></div>
+<div id="panel" class="hide">
+  <div class="tabs">
+    <div class="tab on" id="tab-stats" onclick="show('stats')">Stats</div>
+    <div class="tab" id="tab-users" onclick="show('users')">Users</div>
+    <div class="tab" id="tab-fees" onclick="show('fees')">Fees</div>
+    <div class="tab" id="tab-event" onclick="show('event')">Event</div>
+  </div>
+
+  <!-- STATS -->
+  <div id="view-stats">
+    <button class="primary" style="width:100%;margin-bottom:14px" onclick="loadStats()">↻ Refresh</button>
+    <div class="grid" id="statGrid"></div>
+    <div class="card"><div style="font-weight:700;margin-bottom:10px">Top stakers</div><div id="topList"></div></div>
+  </div>
+
+  <!-- USERS / BAN -->
+  <div id="view-users" class="hide">
+    <div class="card">
+      <div class="field"><span class="lbl">Search wallet or username</span><input id="usearch" placeholder="0x… or @username"/></div>
+      <button class="primary" style="width:100%" onclick="searchUsers()">Search</button>
+    </div>
+    <div id="userList"></div>
+
+    <div class="card" style="margin-top:14px">
+      <div style="font-weight:700;margin-bottom:12px">Ban a user</div>
+      <div class="field"><span class="lbl">Wallet address</span><input id="ban-wallet" placeholder="wallet address"/></div>
+      <div class="field"><span class="lbl">Ban type</span>
+        <select id="ban-type" onchange="toggleTemp()">
+          <option value="permanent">Permanent (manual unban)</option>
+          <option value="temp">Temporary (auto-lifts)</option>
+        </select>
+      </div>
+      <div id="temp-hours-row" class="field hide"><span class="lbl">Duration (hours)</span><input id="ban-hours" type="number" placeholder="24"/></div>
+      <div class="field"><span class="lbl">Reason (shown to user)</span><input id="ban-reason" placeholder="Rule violation"/></div>
+      <button class="primary" style="width:100%;background:linear-gradient(135deg,#ff4444,#ff8d6b)" onclick="banUser()">Ban &amp; freeze</button>
+      <div class="msg" id="banmsg"></div>
+    </div>
+  </div>
+
+  <!-- FEES -->
+  <div id="view-fees" class="hide">
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">Fee settings</div>
+      <div class="field"><span class="lbl">Normal fee % (on rewards)</span><input id="fee-pct" type="number" placeholder="5"/></div>
+      <div class="field"><span class="lbl">Min stake USD (fee applies above this)</span><input id="min-stake" type="number" placeholder="25"/></div>
+      <button class="primary" style="width:100%" onclick="saveFees()">Save fees</button>
+      <div class="msg" id="feemsg"></div>
+    </div>
+  </div>
+
+  <!-- EVENT -->
+  <div id="view-event" class="hide">
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">Fee promo event</div>
+      <div class="field"><span class="lbl">Event label</span><input id="evt-label" placeholder="Launch week — 0% fees!"/></div>
+      <div class="field"><span class="lbl">Event fee % (during event)</span><input id="evt-fee" type="number" placeholder="0"/></div>
+      <div class="field"><span class="lbl">Event ends (date/time)</span><input id="evt-ends" type="datetime-local"/></div>
+      <div style="display:flex;gap:8px">
+        <button class="primary" style="flex:1;background:linear-gradient(135deg,#00d4aa,#6c47ff)" onclick="startEvent()">Start event</button>
+        <button class="primary" style="flex:1;background:#1f2b45;color:#eaf0ff" onclick="stopEvent()">Stop event</button>
+      </div>
+      <div class="msg" id="evtmsg"></div>
+    </div>
+    <div class="card" id="evtStatus"></div>
+  </div>
+</div>
+<div class="msg" id="msg"></div>
+
+<script>
+const API="https://crypticstake-backend.onrender.com";
+const key=()=>document.getElementById("key").value.trim();
+const setMsg=t=>document.getElementById("msg").textContent=t;
+
+function unlock(){if(!key()){setMsg("Enter admin key.");return;}document.getElementById("panel").classList.remove("hide");setMsg("");loadStats();loadCurrentSettings();}
+
+function show(w){["stats","users","fees","event"].forEach(v=>{document.getElementById("view-"+v).classList.toggle("hide",v!==w);document.getElementById("tab-"+v).className="tab"+(v===w?" on":"");});}
+
+function toggleTemp(){document.getElementById("temp-hours-row").classList.toggle("hide",document.getElementById("ban-type").value!=="temp");}
+
+async function loadStats(){
+  try{
+    const r=await fetch(API+"/admin/stats?key="+encodeURIComponent(key()));
+    if(r.status===403){setMsg("Wrong key.");return;}
+    const d=await r.json();
+    document.getElementById("statGrid").innerHTML=[
+      {val:d.users.total,lbl:"Total users"},{val:d.users.banned,lbl:"Banned"},
+      {val:d.stakes.active,lbl:"Active stakes"},{val:(d.stakes.total_sol||0).toFixed(2)+" SOL",lbl:"Total staked"},
+      {val:(d.fees_collected_sol||0).toFixed(4)+" SOL",lbl:"Fees collected",span:true},
+    ].map(s=>`<div class="card stat${s.span?' grid-col-span':''}" ${s.span?'style="grid-column:1/-1"':''}><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join("");
+    document.getElementById("topList").innerHTML=(d.top_stakers||[]).map((u,i)=>`<div class="row"><span class="mut">${i+1}. ${u.username||u.wallet.slice(0,8)+"…"}</span><span class="good">${Number(u.total_staked).toFixed(2)} SOL</span></div>`).join("")||"<div class='mut' style='font-size:13px'>No stakers yet.</div>";
+  }catch(e){setMsg("Could not load stats.");}
+}
+
+async function searchUsers(){
+  const q=document.getElementById("usearch").value.trim();
+  try{
+    const r=await fetch(API+"/admin/users?key="+encodeURIComponent(key())+"&search="+encodeURIComponent(q));
+    const rows=await r.json();
+    const box=document.getElementById("userList");
+    if(!rows.length){box.innerHTML="<div class='mut' style='font-size:13px;padding:10px 0'>No users found.</div>";return;}
+    box.innerHTML=rows.map(u=>`<div class="urow">
+      <div class="uinfo">
+        <div class="uaddr">${u.wallet.slice(0,8)}…${u.wallet.slice(-4)}</div>
+        <div class="ustat">${u.username||"anonymous"} · ${Number(u.total_staked).toFixed(2)} SOL staked ${u.banned?'<span class="bantag">FROZEN</span>':''}</div>
+      </div>
+      ${u.banned
+        ?`<button onclick="unban('${u.wallet}')" style="border:1px solid #1f2b45;background:transparent;color:#43d39e;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-weight:700">Unban</button>`
+        :`<button onclick="quickBan('${u.wallet}')" style="border:1px solid #ff8d6b40;background:transparent;color:#ff8d6b;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-weight:700">Ban</button>`
+      }
+    </div>`).join("");
+  }catch(e){setMsg("Search failed.");}
+}
+
+function quickBan(w){document.getElementById("ban-wallet").value=w;show("users");document.getElementById("ban-wallet").scrollIntoView();}
+
+async function banUser(){
+  const wallet=document.getElementById("ban-wallet").value.trim();
+  const type=document.getElementById("ban-type").value;
+  const hours=document.getElementById("ban-hours").value;
+  const reason=document.getElementById("ban-reason").value.trim();
+  const m=document.getElementById("banmsg");
+  if(!wallet){m.textContent="Enter wallet address.";return;}
+  try{
+    const r=await fetch(API+"/admin/ban?key="+encodeURIComponent(key()),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({wallet,type,hours:parseInt(hours)||24,reason})});
+    const d=await r.json();
+    if(d.error){m.textContent=d.error;return;}
+    m.textContent=type==="temp"?`Temp banned until ${new Date(d.ban_until).toLocaleString()}`:"Permanently banned & frozen.";
+    document.getElementById("ban-wallet").value="";
+  }catch(e){m.textContent="Ban failed.";}
+}
+
+async function unban(wallet){
+  try{
+    await fetch(API+"/admin/unban?key="+encodeURIComponent(key()),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({wallet})});
+    searchUsers();
+  }catch(e){}
+}
+
+async function loadCurrentSettings(){
+  try{
+    const r=await fetch(API+"/api/settings");
+    const d=await r.json();
+    document.getElementById("fee-pct").value=d.base_fee_pct;
+    document.getElementById("min-stake").value=d.min_stake_usd;
+    if(d.event_active){document.getElementById("evt-fee").value=d.event_fee_pct;document.getElementById("evt-label").value=d.event_label||"";}
+    updateEventStatus(d);
+  }catch(e){}
+}
+
+function updateEventStatus(d){
+  const box=document.getElementById("evtStatus");
+  if(d.event_active){box.innerHTML=`<div style="color:#00d4aa;font-weight:700;margin-bottom:6px">🎉 Event ACTIVE</div><div style="font-size:13px;color:#8b97b4">${d.event_label} · ${d.event_fee_pct}% fee · ends ${d.event_ends?new Date(d.event_ends).toLocaleString():"–"}</div>`;}
+  else{box.innerHTML=`<div style="color:#8b97b4;font-size:13px">No event active.</div>`;}
+}
+
+async function saveFees(){
+  const m=document.getElementById("feemsg");
+  try{
+    const r=await fetch(API+"/admin/settings?key="+encodeURIComponent(key()),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fee_pct:document.getElementById("fee-pct").value,min_stake_usd:document.getElementById("min-stake").value})});
+    const d=await r.json();
+    m.textContent=d.ok?"Fees saved!":"Failed.";
+  }catch(e){m.textContent="Failed.";}
+}
+
+async function startEvent(){
+  const m=document.getElementById("evtmsg");
+  try{
+    const r=await fetch(API+"/admin/settings?key="+encodeURIComponent(key()),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event_active:"true",event_fee_pct:document.getElementById("evt-fee").value,event_ends:document.getElementById("evt-ends").value,event_label:document.getElementById("evt-label").value})});
+    const d=await r.json();
+    m.textContent=d.ok?"Event started! Users will see it immediately.":"Failed.";
+    loadCurrentSettings();
+  }catch(e){m.textContent="Failed.";}
+}
+
+async function stopEvent(){
+  const m=document.getElementById("evtmsg");
+  try{
+    await fetch(API+"/admin/settings?key="+encodeURIComponent(key()),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({event_active:"false"})});
+    m.textContent="Event stopped.";loadCurrentSettings();
+  }catch(e){m.textContent="Failed.";}
+}
+</script>
+</body>
+</html>
