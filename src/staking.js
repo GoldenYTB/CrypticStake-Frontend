@@ -9,7 +9,7 @@ import { getWalletProvider, FEE_WALLET } from "./wallet.js";
 export const NETWORK = "devnet"; // "devnet" | "mainnet-beta"
 
 const RPC = NETWORK === "mainnet-beta"
-  ? "https://api.mainnet-beta.solana.com"
+  ? "https://mainnet.helius-rpc.com/?api-key=d99ce001-e648-416e-97af-18ae2769d730"
   : "https://api.devnet.solana.com";
 
 // Validator vote account to delegate to.
