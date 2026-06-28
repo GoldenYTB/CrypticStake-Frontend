@@ -6,10 +6,9 @@ import { solana } from "@reown/appkit/networks";
 // Your Reown project ID (from dashboard.reown.com)
 const PROJECT_ID = "88a2e287bdef768ed8f0cec815dfc349";
 
-// RPC endpoint. Using Solana's public RPC for now (safe to expose, rate-limited).
-// When you go live, replace with your Helius URL AFTER restricting it to your
-// domain in the Helius dashboard (so it can't be abused even though it's public-facing).
-export const HELIUS_RPC = "https://devnet.helius-rpc.com/?api-key=d99ce001-e648-416e-97af-18ae2769d730";
+// RPC endpoint. Testing uses devnet (set in staking.js). Your Helius mainnet URL
+// is wired into staking.js and used automatically when you switch to mainnet.
+export const HELIUS_RPC = "https://api.devnet.solana.com";
 
 // Your SOL wallet — fees are sent here (public address, safe to expose)
 export const FEE_WALLET = "7N7FaLy9hrC1SUC7G8f4X7M7iSq16HRfMkTh7zeZnyqe";
