@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { initWallet, openWalletModal, onWalletChange, disconnectWallet } from "./wallet.js";
+import { stakeSol, NETWORK } from "./staking.js";
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const API = "https://crypticstake-backend.onrender.com"; // update after deploy
@@ -113,6 +114,7 @@ function Header({ wallet, totalStaked, banned, onConnect, onDisconnect, settings
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-.03em" }}>
           <span style={{ color: ACC }}>Cryptic</span><span style={{ color: ACC2 }}>Stake</span>
+          {NETWORK !== "mainnet-beta" && <span style={{ fontSize: 9, color: WARN, fontWeight: 700, marginLeft: 6, verticalAlign: "middle", border: `1px solid ${WARN}55`, borderRadius: 5, padding: "1px 5px" }}>DEVNET</span>}
         </div>
         {wallet ? (
           <button onClick={onDisconnect} style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${banned ? WARN + "80" : LINE}`, background: banned ? WARN + "10" : SURF, color: banned ? WARN : INK, borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
@@ -219,17 +221,22 @@ function Stake({ wallet, user, settings, onConnect, onStaked }) {
   async function confirmStake() {
     setShowConfirm(false);
     setStaking(true);
-    setMsg({ t: "Requesting wallet approval…", k: "" });
+    setMsg({ t: "Building transaction… approve it once in your wallet.", k: "" });
     try {
-      await new Promise(r => setTimeout(r, 1500));
-      const r = await fetch(API + "/api/stake", {
+      // fee + stake combined into ONE transaction = one signature
+      const result = await stakeSol({ ownerAddress: wallet, amountSol: solAmt, feePct: feeApplies ? feePct : 0 });
+
+      // record it in the backend for stats
+      await fetch(API + "/api/stake", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, amount_sol: stakeAmt, amount_usd: usdAmt, tx_sig: feeApplies ? "demo_tx" : null }),
+        body: JSON.stringify({ wallet, amount_sol: result.staked, amount_usd: usdAmt, stake_account: result.stakeAccount, tx_sig: result.signature }),
       });
-      const d = await r.json();
-      if (d.error) { setMsg({ t: d.error, k: "err" }); }
-      else { setMsg({ t: `Staked ${stakeAmt.toFixed(4)} SOL! Activates next epoch (~2-3 days).`, k: "ok" }); setAmt(""); onStaked(); }
-    } catch (e) { setMsg({ t: "Stake failed. Try again.", k: "err" }); }
+      setMsg({ t: `Staked ${result.staked.toFixed(4)} SOL! Activates next epoch (~2-3 days).`, k: "ok" });
+      setAmt("");
+      onStaked();
+    } catch (e) {
+      setMsg({ t: "Transaction cancelled or failed: " + (e.message || "error"), k: "err" });
+    }
     setStaking(false);
   }
 
